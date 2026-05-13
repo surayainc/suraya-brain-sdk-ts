@@ -1,0 +1,56 @@
+# Suraya v1.4 hardening — npm publish on tag push.
+#
+# Triggers on tags matching `v*` (e.g. v0.1.0, v1.2.3).
+# Gated on the `production` environment, which has kesuraya
+# as a required reviewer (set up at the GitHub UI level).
+#
+# Secrets required (in the `production` environment):
+#   NPM_TOKEN — npm publish token with rights to @surayaorg scope
+#
+# Authoring flow:
+#   1. Bump version in package.json
+#   2. PR + merge
+#   3. git tag vX.Y.Z && git push --tags
+#   4. Approve the production deployment in GitHub UI
+#   5. Workflow runs npm publish
+
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm run build
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+      - name: Publish
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,90 @@
+# Suraya v1.4 hardening — TypeScript / npm CI pipeline.
+#
+# Runs Typecheck / Test / Build on every PR and push to main.
+# Required-to-be-green via branch protection (canonical list at
+# surayainc/suraya:governance/branch-protection.md).
+#
+# Repos with a `lint` script also pick up a Lint job; repos without
+# it skip cleanly. This template is the v1.4 baseline for TS repos
+# using `npm` + `package-lock.json` (the established pattern in
+# suraya-portal/suraya-brain).
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  agent-label:
+    name: Label agent-generated PRs
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Detect agent-authored PR and label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = (pr.body || "").toLowerCase();
+            const title = (pr.title || "").toLowerCase();
+            const looksAgent =
+              body.includes("co-authored-by: claude") ||
+              body.includes("generated with claude code") ||
+              body.includes("generated with cursor") ||
+              title.includes("[agent]");
+            if (looksAgent) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ["agent-generated"],
+              });
+            }
