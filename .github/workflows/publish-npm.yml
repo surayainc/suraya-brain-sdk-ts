@@ -4,15 +4,22 @@
 # Gated on the `production` environment, which has kesuraya
 # as a required reviewer (set up at the GitHub UI level).
 #
-# Secrets required (in the `production` environment):
-#   NPM_TOKEN — npm publish token with rights to @surayaorg scope
+# AUTH: npm Trusted Publishing (OIDC) — NO token, NO secret (v1.5, 2026-10-07).
+# The npmjs-side trust is configured on the package: npmjs.com → @surayaorg/brain-sdk
+# → Settings → Trusted publishing → GitHub Actions → org `surayainc`, repo
+# `suraya-brain-sdk-ts`, workflow `publish-npm.yml`, environment `production`.
+# npm requires CLI ≥ 11.5.1 and Node ≥ 22.14 for the OIDC exchange (node 24 below
+# bundles npm 11). The long-lived NPM_TOKEN path is retired — npm restricts
+# 2FA-bypassing tokens (Aug 2026) and token-based direct publishing (Jan 2027).
+# NOTE: setup-node deliberately has NO registry-url — its generated .npmrc would
+# template an _authToken=${NODE_AUTH_TOKEN} line that shadows the OIDC exchange.
 #
 # Authoring flow:
 #   1. Bump version in package.json
 #   2. PR + merge
 #   3. git tag vX.Y.Z && git push --tags
 #   4. Approve the production deployment in GitHub UI
-#   5. Workflow runs npm publish
+#   5. Workflow publishes via OIDC — provenance attached automatically
 
 name: Publish to npm
 
@@ -37,9 +44,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
-          registry-url: "https://registry.npmjs.org"
       - run: npm ci
       - run: npm run build
       - name: Verify tag matches package.json version
@@ -50,7 +56,5 @@ jobs:
             echo "::error::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
             exit 1
           fi
-      - name: Publish
+      - name: Publish (OIDC trusted publishing — tokenless)
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
