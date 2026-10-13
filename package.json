@@ -1,7 +1,7 @@
 {
   "name": "@surayaorg/brain-sdk",
   "version": "0.1.1",
-  "description": "TypeScript client for the Suraya brain \u2014 typed observation graph retrieval and emission. MIT.",
+  "description": "TypeScript client for the Suraya brain — typed observation graph retrieval and emission. MIT.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -29,7 +29,7 @@
   "devDependencies": {
     "@types/node": "^22.19.18",
     "typescript": "^5.7.0",
-    "vitest": "^2.1.9"
+    "vitest": "^4.1.11"
   },
   "publishConfig": {
     "access": "public"
